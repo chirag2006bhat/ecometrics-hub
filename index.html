@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_self">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  
+  <style>
+      /* Base Reset & Variables */
+      * {
+          box-sizing: border-box;
+          margin: 0;
+          padding: 0;
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      }
+
+      body {
+          background: linear-gradient(135deg, #e4efe9 0%, #93a5cf 100%);
+          min-height: 100vh;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          padding: 40px 20px;
+      }
+
+      /* Header Typography */
+      .dashboard-title {
+          color: #1e293b;
+          font-size: 2.2rem;
+          margin-bottom: 8px;
+          font-weight: 700;
+          text-align: center;
+          letter-spacing: -0.5px;
+          text-shadow: 0 2px 4px rgba(255,255,255,0.5);
+      }
+
+      .dashboard-subtitle {
+          color: #475569;
+          font-size: 1.1rem;
+          margin-bottom: 35px;
+          text-align: center;
+          font-weight: 500;
+      }
+
+      /* Twin Column Layout structure */
+      .dashboard-container {
+          display: flex;
+          width: 100%;
+          max-width: 1300px;
+          gap: 40px;
+          align-items: stretch;
+      }
+
+      /* Left Side Panel - Filters */
+      .filter-panel {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          gap: 24px;
+          background: rgba(255, 255, 255, 0.4);
+          padding: 30px;
+          border-radius: 20px;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+          backdrop-filter: blur(10px);
+          border: 1px solid rgba(255, 255, 255, 0.6);
+      }
+
+      .filter-group {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+      }
+
+      .filter-group label {
+          color: #0f766e;
+          font-weight: 700;
+          font-size: 0.85rem;
+          text-transform: uppercase;
+          letter-spacing: 1.2px;
+          margin-left: 5px;
+      }
+
+      /* Premium Select Box styling */
+      .filter-select {
+          width: 100%;
+          padding: 14px 18px;
+          border-radius: 12px;
+          border: 1px solid rgba(255, 255, 255, 0.8);
+          background-color: rgba(255, 255, 255, 0.9);
+          font-size: 0.95rem;
+          color: #334155;
+          font-weight: 600;
+          appearance: none;
+          background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+          background-repeat: no-repeat;
+          background-position: right 18px center;
+          background-size: 14px;
+          box-shadow: 0 4px 10px rgba(0, 0, 0, 0.03);
+          transition: all 0.25s ease;
+          cursor: pointer;
+      }
+
+      .filter-select:focus {
+          outline: none;
+          border-color: #10b981;
+          background-color: #ffffff;
+          box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15);
+      }
+
+      /* Right Side Panel - Map */
+      .map-panel {
+          flex: 2;
+          background: #ffffff;
+          border-radius: 20px;
+          padding: 16px;
+          box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+          display: flex;
+          min-height: 600px;
+          border: 1px solid rgba(255, 255, 255, 0.8);
+      }
+
+      #map {
+          width: 100%;
+          height: 100%;
+          border-radius: 14px;
+          z-index: 1; 
+      }
+
+      /* Status Legend Section at Bottom */
+      .legend-container {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          gap: 30px;
+          margin-top: 35px;
+          background: rgba(255, 255, 255, 0.85);
+          padding: 16px 35px;
+          border-radius: 50px;
+          box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+          backdrop-filter: blur(10px);
+          border: 1px solid rgba(255, 255, 255, 0.5);
+      }
+
+      .legend-item {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-size: 0.95rem;
+          font-weight: 700;
+          color: #334155;
+      }
+
+      .legend-dot {
+          width: 14px;
+          height: 14px;
+          border-radius: 50%;
+          box-shadow: 0 0 0 2px #fff, 0 2px 5px rgba(0,0,0,0.2);
+      }
+
+      .legend-dot.danger { background-color: #d32f2f; }
+      .legend-dot.warning { background-color: #fbc02d; }
+      .legend-dot.safe { background-color: #388e3c; }
+      .legend-dot.nodata { background-color: #9e9e9e; }
+
+      /* Leaflet Popup & Data Table Enhancements */
+      .leaflet-popup-content-wrapper {
+          border-radius: 16px !important;
+          box-shadow: 0 15px 30px rgba(0,0,0,0.15) !important;
+          padding: 5px;
+      }
+
+      .leaflet-popup-content {
+          max-height: 300px;
+          overflow-y: auto;
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      }
+
+      .leaflet-popup-content b {
+          color: #1e293b;
+          font-size: 1.1rem;
+          display: block;
+          margin-bottom: 8px;
+          border-bottom: 2px solid #e2e8f0;
+          padding-bottom: 5px;
+      }
+
+      .data-table {
+          border-collapse: collapse;
+          width: 100%;
+          font-size: 0.85rem;
+          margin-top: 10px;
+      }
+
+      .data-table th {
+          background-color: #f8fafc;
+          color: #475569;
+          padding: 8px;
+          text-align: left;
+          position: sticky;
+          top: 0;
+          font-weight: 700;
+          border-bottom: 2px solid #cbd5e1;
+      }
+
+      .data-table td {
+          padding: 8px;
+          border-bottom: 1px solid #f1f5f9;
+          color: #334155;
+          font-weight: 500;
+      }
+
+      .data-table tr:hover { background-color: #f8fafc; }
+
+      /* Status Text Colors - Upgraded with High Specificity */
+      table.data-table td.text-red, span.text-red, .text-red { color: #d32f2f !important; font-weight: 700 !important; }
+      table.data-table td.text-yellow, span.text-yellow, .text-yellow { color: #d97706 !important; font-weight: 700 !important; } 
+      table.data-table td.text-green, span.text-green, .text-green { color: #10b981 !important; font-weight: 700 !important; }
+      table.data-table td.text-grey, span.text-grey, .text-grey { color: #94a3b8 !important; font-weight: 500 !important; }
+
+      /* Responsive Breakpoints */
+      @media (max-width: 960px) {
+          /* Turns off flex centering so users can actually scroll down */
+          body { 
+              padding: 20px 15px;
+              display: block; 
+              height: auto; 
+          }
+          
+          .dashboard-container { 
+              flex-direction: column;
+              gap: 25px; 
+          }
+          
+          /* Forces an unbreakable height for the map so it won't squish */
+          .map-panel { 
+              display: block;
+              height: 500px; 
+              flex: none; 
+              width: 100%;
+          }
+          
+          .legend-container { 
+              flex-wrap: wrap;
+              border-radius: 20px; 
+              margin-bottom: 40px; 
+          }
+      }
+
+      
+
+      /* ==========================================
+         CHATBOT PREMIUM FLOATING UI STYLES
+         ========================================== */
+      .chat-widget-container {
+          position: fixed;
+          bottom: 25px;
+          right: 25px;
+          z-index: 9999;
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      }
+
+      .chat-trigger-btn {
+          width: 60px;
+          height: 60px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #0f766e 0%, #10b981 100%);
+          color: white;
+          border: none;
+          box-shadow: 0 5px 25px rgba(16, 185, 129, 0.4);
+          cursor: pointer;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .chat-trigger-btn:hover {
+          transform: scale(1.08) rotate(5deg);
+          box-shadow: 0 8px 30px rgba(16, 185, 129, 0.5);
+      }
+
+      .chat-trigger-btn svg {
+          width: 28px;
+          height: 28px;
+          fill: currentColor;
+      }
+
+      .chat-window {
+          position: absolute;
+          bottom: 75px;
+          right: 0;
+          width: 360px;
+          height: 500px;
+          max-height: calc(100vh - 120px);
+          /* Prevents it from going off the top of the screen */
+          background: #ffffff;
+          border-radius: 20px;
+          box-shadow: 0 10px 35px rgba(0, 0, 0, 0.15);
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          opacity: 0;
+          transform: translateY(20px) scale(0.95);
+          pointer-events: none;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          border: 1px solid rgba(15, 118, 110, 0.15);
+      }
+
+      .chat-window.active {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+          pointer-events: auto;
+      }
+
+      .chat-header {
+          background: linear-gradient(135deg, #0f766e 0%, #115e59 100%);
+          color: white;
+          padding: 16px 20px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+      }
+
+      .chat-header-title {
+          font-weight: 700;
+          font-size: 1rem;
+          letter-spacing: 0.5px;
+      }
+
+      .chat-close-btn {
+          background: transparent;
+          border: none;
+          color: rgba(255, 255, 255, 0.8);
+          font-size: 1.4rem;
+          cursor: pointer;
+          transition: color 0.2s;
+          line-height: 1;
+      }
+
+      .chat-close-btn:hover {
+          color: white;
+      }
+
+      .chat-messages-box {
+          flex: 1;
+          padding: 20px;
+          overflow-y: auto;
+          background: #f8fafc;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+      }
+
+      .chat-msg {
+          max-width: 80%;
+          padding: 12px 16px;
+          border-radius: 16px;
+          font-size: 0.9rem;
+          line-height: 1.4;
+          word-wrap: break-word;
+      }
+
+      .chat-msg.user {
+          background: #0f766e;
+          color: white;
+          align-self: flex-end;
+          border-bottom-right-radius: 4px;
+          box-shadow: 0 4px 10px rgba(15, 118, 110, 0.15);
+      }
+
+      .chat-msg.bot {
+          background: #ffffff;
+          color: #334155;
+          align-self: flex-start;
+          border-bottom-left-radius: 4px;
+          border: 1px solid #e2e8f0;
+          box-shadow: 0 4px 10px rgba(0, 0, 0, 0.02);
+      }
+
+      .chat-input-area {
+          padding: 14px 18px;
+          background: #ffffff;
+          border-top: 1px solid #e2e8f0;
+          display: flex;
+          gap: 10px;
+          align-items: center;
+      }
+
+      .chat-input-field {
+          flex: 1;
+          padding: 10px 14px;
+          border-radius: 10px;
+          border: 1px solid #cbd5e1;
+          font-size: 0.9rem;
+          outline: none;
+          transition: border-color 0.2s;
+      }
+
+      .chat-input-field:focus {
+          border-color: #10b981;
+      }
+
+      .chat-send-btn {
+          background: #0f766e;
+          color: white;
+          border: none;
+          padding: 10px 14px;
+          border-radius: 10px;
+          cursor: pointer;
+          font-weight: 600;
+          font-size: 0.9rem;
+          transition: background 0.2s;
+      }
+
+      .chat-send-btn:hover {
+          background: #115e59;
+      }
+
+      .typing-indicator {
+          display: none;
+          align-self: flex-start;
+          background: #e2e8f0;
+          padding: 10px 16px;
+          border-radius: 16px;
+          border-bottom-left-radius: 4px;
+      }
+
+      .typing-dots {
+          display: flex;
+          gap: 4px;
+      }
+
+      .typing-dots span {
+          width: 6px;
+          height: 6px;
+          background: #64748b;
+          border-radius: 50%;
+          animation: chatBounce 1.4s infinite ease-in-out both;
+      }
+
+      .typing-dots span:nth-child(1) { animation-delay: -0.32s; }
+      .typing-dots span:nth-child(2) { animation-delay: -0.16s; }
+
+      @keyframes chatBounce {
+          0%, 80%, 100% { transform: scale(0); }
+          40% { transform: scale(1.0); }
+      }
+      /* Base styles for the dropdown list items */
+      .dropdown-item {
+          padding: 10px 15px;
+          width: 100%;
+          display: block;
+          box-sizing: border-box;
+          transition: background-color 0.2s ease;
+      }
+      /* ==========================================
+         AI QUICK ACTIONS MENU (NEW ADDITION)
+         ========================================== */
+      .chat-input-wrapper { position: relative; background: #ffffff; border-top: 1px solid #e2e8f0; }
+      
+      .quick-actions-menu {
+          position: absolute;
+          bottom: 100%; left: 0; right: 0; background: #1e293b; color: white;
+          border-radius: 12px 12px 0 0; display: flex; flex-direction: column;
+          padding: 8px 0;
+          transform: translateY(100%); opacity: 0; pointer-events: none; transition: all 0.2s ease; z-index: 10;
+          box-shadow: 0 -5px 20px rgba(0,0,0,0.15);
+          border-bottom: 1px solid #334155;
+      }
+      .quick-actions-menu.open { transform: translateY(0); opacity: 1; pointer-events: auto; }
+      
+      .qa-item {
+          padding: 10px 18px;
+          display: flex; align-items: center; gap: 10px; cursor: pointer;
+          font-size: 0.85rem; border-bottom: 1px solid #334155; transition: background 0.2s;
+      }
+      .qa-item:last-child { border-bottom: none; }
+      .qa-item:hover { background: #334155; }
+      .qa-icon { font-size: 1.1rem; }
+      
+      .qa-toggle-btn { 
+          background: #f1f5f9;
+          border: 1px solid #cbd5e1; border-radius: 50%; width: 36px; height: 36px; 
+          display: flex; justify-content: center; align-items: center; font-size: 1.2rem; cursor: pointer;
+          color: #475569; transition: all 0.2s; margin-right: 8px;
+      }
+      .qa-toggle-btn:hover { background: #e2e8f0; color: #0f766e; }
+
+  </style>
+</head>
+<body>
+
+  
+
+  <h1 class="dashboard-title" id="main-title">Ecometrics Hub</h1>
+  <p class="dashboard-subtitle">Real-time municipal compliance & monitoring system</p>
+
+  <div class="dashboard-container">
+    
+    <div class="filter-panel">
+      <div class="filter-group">
+        <label>Type of Testing</label>
+        <select id="testingTypeFilter" class="filter-select"></select>
+      </div>
+
+      <div class="filter-group">
+        <label>Location</label>
+        <select id="locationFilter" class="filter-select"></select>
+      </div>
+
+      <div class="filter-group">
+        <label>Source</label>
+        <select id="sourceFilter" class="filter-select"></select>
+      </div>
+
+      <div class="filter-group">
+        <label>Time Period</label>
+        <select id="monthFilter" class="filter-select"></select>
+      </div>
+
+      <div class="filter-group">
+        <label>Parameter Focus</label>
+        <select id="paramFilter" class="filter-select"></select>
+      </div>
+
+      <div class="filter-group">
+        <label>Safety Zones</label>
+        <select id="zoneFilter" class="filter-select">
+          <option value="All">All Zones</option>
+          <option value="Red" class="zone-red">🔴 Red Zone (Violations)</option>
+          <option value="Yellow" class="zone-yellow">🟡 Yellow Zone (Warnings)</option>
+          <option value="Green" class="zone-green">🟢 Green Zone (Compliant)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="map-panel">
+      <div id="map"></div>
+    </div>
+  </div>
+
+  <div class="legend-container" id="dashboard-legend">
+    <div class="legend-item"><div class="legend-dot safe"></div> Compliant</div>
+    <div class="legend-item"><div class="legend-dot warning"></div> Warning</div>
+    <div class="legend-item"><div class="legend-dot danger"></div> Non-Compliant</div>
+    <div class="legend-item"><div class="legend-dot nodata"></div> No Data</div>
+  </div>
+<div class="chat-widget-container">
+    <button class="chat-trigger-btn" id="chatTriggerBtn" title="Open Dashboard Assistant">
+      <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.2L4 17.2V4h16v12z"/></svg>
+    </button>
+    
+    <div class="chat-window" id="chatWindow">
+      <div class="chat-header">
+        <span class="chat-header-title" id="chat-title">Dashboard AI Assistant</span>
+        <button class="chat-close-btn" id="chatCloseBtn">&times;</button>
+      </div>
+      
+    <div class="chat-messages-box" id="chatMessagesBox">
+        <div class="chat-msg bot" id="chat-welcome">
+          Hello! I am your EcoMetrics Hub assistant. Ask me questions about environmental parameters, zones, or specific locations.
+        </div>
+      </div>
+      
+      <div class="typing-indicator" id="chatTypingIndicator">
+        <div class="typing-dots"><span></span><span></span><span></span></div>
+      </div>
+      
+     <div class="chat-input-wrapper">
+        <div class="quick-actions-menu" id="quickActionsMenu">
+          <div class="qa-item" onclick="insertPrompt('Generate an executive compliance report for ')">
+            <span class="qa-icon">📝</span> Executive Compliance Report
+          </div>
+          <div class="qa-item" onclick="insertPrompt('Generate a visual chart of [Type Parameter Here] for ')">
+            <span class="qa-icon">📊</span> Generate Visual Chart
+          </div>
+          <div class="qa-item" onclick="insertPrompt('Suggest remediation strategies to improve quality for ')">
+            <span class="qa-icon">💡</span> Remediation Suggestions
+          </div>
+          <div class="qa-item" onclick="insertPrompt('Show predictive risk analysis for ')">
+            <span class="qa-icon">🚨</span> Predictive Risk Alerts
+          </div>
+        </div>
+
+        <div class="chat-input-area" style="display: flex; gap: 8px; align-items: center; padding: 12px 16px; position: relative; z-index: 11;">
+          <button class="qa-toggle-btn" id="qaToggleBtn" title="AI Quick Actions">+</button>
+          <input type="text" class="chat-input-field" id="chatInputField" placeholder="Type your question here...">
+          <button class="chat-send-btn" id="chatSendBtn">Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+
+    let map, markersLayer = L.layerGroup(), dashboardData = {};
+    const BACKEND_URL = "https://script.google.com/macros/s/AKfycbyfCBVvnkjMCcybnRiJTxfi6JzsLR5kiUhJ-UvCh8PIghCerCMWYK_BRf_D_1IGtISarw/exec";
+    function initMap() {
+      map = L.map('map').setView([13.2941, 77.5413], 13);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
+        attribution: '&copy; OpenStreetMap' 
+      }).addTo(map);
+      markersLayer.addTo(map);
+    }
+
+   // Connects to Vercel/External Backend via POST request
+   // Connects to Vercel/External Backend via POST request securely
+    function loadData() { 
+      fetch(BACKEND_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        redirect: "follow",
+        body: JSON.stringify({ action: "getDashboardData" })
+      })
+      .then(res => res.json())
+      .then(result => {
+        if (result.status === "success") {
+          initializeDashboard(result.data);
+        } else {
+          console.error("Data Load Error:", result.message);
+        }
+      })
+      .catch(err => console.error("Fetch failure:", err));
+    }
+
+    function initializeDashboard(data) {
+      dashboardData = data;
+      
+      const typeSelect = document.getElementById('testingTypeFilter');
+      const typesSet = new Set(data.locations.map(loc => loc.testingType || "Water Testing"));
+      typeSelect.innerHTML = '<option value="All">All Testing Types</option>';
+      Array.from(typesSet).sort().forEach(type => typeSelect.appendChild(new Option(type, type)));
+      
+      typeSelect.addEventListener('change', cascadeFilters);
+      document.getElementById('locationFilter').addEventListener('change', updateMap);
+      document.getElementById('sourceFilter').addEventListener('change', updateMap);
+      document.getElementById('monthFilter').addEventListener('change', updateMap);
+      document.getElementById('paramFilter').addEventListener('change', updateMap);
+      document.getElementById('zoneFilter').addEventListener('change', updateMap);
+
+      cascadeFilters();
+    }
+
+    function cascadeFilters() {
+      const selectedType = document.getElementById('testingTypeFilter').value;
+      const validLocations = dashboardData.locations.filter(loc => selectedType === "All" || (loc.testingType || "Water Testing") === selectedType);
+
+      const locSelect = document.getElementById('locationFilter');
+      locSelect.innerHTML = '<option value="All">All Locations</option>';
+      validLocations.sort((a, b) => a.name.localeCompare(b.name)).forEach(loc => { locSelect.appendChild(new Option(loc.name, loc.name)); });
+
+      const sourceSelect = document.getElementById('sourceFilter');
+      const sourceTypesSet = new Set(validLocations.map(loc => loc.sourceType).filter(Boolean));
+      sourceSelect.innerHTML = '<option value="All">All Sources</option>';
+      Array.from(sourceTypesSet).sort().forEach(source => sourceSelect.appendChild(new Option(source, source)));
+
+      const monthSelect = document.getElementById('monthFilter');
+      monthSelect.innerHTML = '<option value="All">All Time Periods</option>';
+      dashboardData.months.forEach(month => monthSelect.appendChild(new Option(month, month)));
+
+      const paramSelect = document.getElementById('paramFilter');
+      paramSelect.innerHTML = '<option value="All">All Parameters</option>';
+      const relevantParams = new Set();
+      validLocations.forEach(loc => {
+        Object.values(loc.records).forEach(record => { Object.keys(record).forEach(param => relevantParams.add(param)); });
+      });
+      Array.from(relevantParams).filter(p => p !== "Month" && p !== "Parameter").sort((a, b) => a.localeCompare(b)).forEach(param => paramSelect.appendChild(new Option(param, param)));
+
+      const mainTitle = document.getElementById('main-title');
+      const chatTitle = document.getElementById('chat-title');
+      const chatWelcome = document.getElementById('chat-welcome');
+      const zoneDropdown = document.getElementById('zoneFilter');
+      const legendBox = document.getElementById('dashboard-legend');
+
+      if (selectedType === "Food Testing") {
+          mainTitle.innerText = "EcoMetrics Hub - Food Safety";
+          if(chatTitle) chatTitle.innerText = "Food Safety Assistant";
+          if(chatWelcome) chatWelcome.innerText = "Hello! Ask me about food safety limits and contamination standards.";
+          zoneDropdown.innerHTML = `<option value="All">All Zones</option><option value="Red" class="zone-red">🔴 Critical (Contaminated)</option><option value="Yellow" class="zone-yellow">🟡 Warning (Near Limits)</option><option value="Green" class="zone-green">🟢 Safe (Compliant)</option>`;
+          legendBox.innerHTML = `<div class="legend-item"><div class="legend-dot safe"></div> Safe</div><div class="legend-item"><div class="legend-dot warning"></div> Warning</div><div class="legend-item"><div class="legend-dot danger"></div> Contaminated</div><div class="legend-item"><div class="legend-dot nodata"></div> No Data</div>`;
+      } else if (selectedType === "Soil Testing") {
+          mainTitle.innerText = "EcoMetrics Hub - Soil Quality";
+          if(chatTitle) chatTitle.innerText = "Soil Analysis Assistant";
+          if(chatWelcome) chatWelcome.innerText = "Hello! Ask me about soil nutrients, pH levels, and agricultural standards.";
+          zoneDropdown.innerHTML = `<option value="All">All Zones</option><option value="Red" class="zone-red">🔴 Poor Quality</option><option value="Yellow" class="zone-yellow">🟡 Moderate Quality</option><option value="Green" class="zone-green">🟢 Optimal Quality</option>`;
+          legendBox.innerHTML = `<div class="legend-item"><div class="legend-dot safe"></div> Optimal</div><div class="legend-item"><div class="legend-dot warning"></div> Moderate</div><div class="legend-item"><div class="legend-dot danger"></div> Poor</div><div class="legend-item"><div class="legend-dot nodata"></div> No Data</div>`;
+      } else {
+          mainTitle.innerText = "Ecometrics Hub";
+          if(chatTitle) chatTitle.innerText = "Dashboard AI Assistant";
+          if(chatWelcome) chatWelcome.innerText = "Hello! I am your EcoMetrics Hub assistant. Ask me questions about environmental parameters, zones, or specific locations.";
+          zoneDropdown.innerHTML = `<option value="All">All Zones</option><option value="Red" class="zone-red">🔴 Red Zone (Violations)</option><option value="Yellow" class="zone-yellow">🟡 Yellow Zone (Warnings)</option><option value="Green" class="zone-green">🟢 Green Zone (Compliant)</option>`;
+          legendBox.innerHTML = `<div class="legend-item"><div class="legend-dot safe"></div> Compliant</div><div class="legend-item"><div class="legend-dot warning"></div> Warning</div><div class="legend-item"><div class="legend-dot danger"></div> Non-Compliant</div><div class="legend-item"><div class="legend-dot nodata"></div> No Data</div>`;
+      }
+      updateMap();
+    }
+
+   // 1. MASTER LIMIT FINDER (Synced with AI)
+    function getMasterLimits(parameter, locationName) {
+      const locData = dashboardData.locations.find(l => l.name === locationName);
+      const sourceType = locData && locData.sourceType ? String(locData.sourceType).trim() : "Drinking Water";
+      const tType = locData && locData.testingType ? String(locData.testingType).trim() : "Water Testing";
+      
+      let catKey = Object.keys(dashboardData.thresholds).find(k => k.toLowerCase() === sourceType.toLowerCase());
+      if (!catKey) catKey = Object.keys(dashboardData.thresholds).find(k => k.toLowerCase() === tType.toLowerCase());
+      if (!catKey) {
+          const sTypeUp = sourceType.toUpperCase();
+          if (sTypeUp.includes("STP") || sTypeUp.includes("SEWAGE")) catKey = Object.keys(dashboardData.thresholds).find(k => k.toLowerCase() === "stp");
+          else if (sTypeUp.includes("LAKE") || sTypeUp.includes("POND") || sTypeUp.includes("RIVER") || sTypeUp.includes("SURFACE") || sTypeUp.includes("TANK")) catKey = Object.keys(dashboardData.thresholds).find(k => k.toLowerCase() === "surface water");
+          else catKey = Object.keys(dashboardData.thresholds).find(k => k.toLowerCase() === "drinking water");
+      }
+
+      if (catKey && dashboardData.thresholds[catKey]) {
+          const paramKey = Object.keys(dashboardData.thresholds[catKey]).find(k => k.toLowerCase() === parameter.toLowerCase());
+          if (paramKey) return dashboardData.thresholds[catKey][paramKey];
+      }
+      return null;
+    }
+     
+
+    function isParameterStrict(parameter, locationName) {
+      let limits = getMasterLimits(parameter, locationName);
+      return limits && limits.strict === true;
+    }
+
+    function isZeroTolerance(parameter, locationName) {
+      if (parameter.toLowerCase().includes("coli") || parameter.toLowerCase().includes("bacteria")) return true;
+      let limits = getMasterLimits(parameter, locationName);
+      if (limits && limits.strict === true && limits.min === undefined && limits.max === undefined) return true;
+      return false;
+    }
+
+    function formatDisplayValue(value, parameter, locationName) {
+      if (value === undefined || value === null || value === "" || String(value).trim() === "-") return value;
+      if (isZeroTolerance(parameter, locationName)) {
+          let cleanStr = String(value).trim().toLowerCase();
+          if (cleanStr.includes("absent") || cleanStr === "nil" || cleanStr.includes("not detectable") || cleanStr === "bdl" || cleanStr === "nd") return "Absent";
+          if (cleanStr.includes("present") || cleanStr.includes("detectable")) return `Present (${value})`;
+          
+          let numValue = parseFloat(cleanStr.replace(/[^\d.-]/g, ''));
+          if (!isNaN(numValue)) {
+              if (numValue > 0) return `Present (${value})`;
+              return "Absent";
+          }
+      }
+      return value;
+    }
+
+    function getZone(parameter, value, locationName) {
+      if (value === undefined || value === null || value === "") return "Grey";
+      let cleanStr = String(value).trim().toLowerCase();
+      if (cleanStr === "-" || cleanStr === "grey") return "Grey";
+      if (cleanStr === "bdl" || cleanStr === "nd") cleanStr = "0";
+      if (cleanStr.includes("absent") || cleanStr.includes("agreeable") || cleanStr.includes("not detectable") || cleanStr === "nil" || cleanStr.includes("free from")) return "Green";
+      if (cleanStr.includes("present") || cleanStr.includes("disagreeable") || cleanStr.includes("objectionable") || cleanStr.includes("positive") || cleanStr.includes("detectable")) return "Red";
+
+      const numValue = parseFloat(cleanStr.replace(/[^\d.-]/g, ''));
+      if (isNaN(numValue)) return "Grey";
+
+      let limits = getMasterLimits(parameter, locationName);
+      if (!limits && !isZeroTolerance(parameter, locationName)) return "Green";
+      let isRed = false, isYellow = false;
+      let buffer = (limits && limits.strict === true) ? 0.0 : 0.10;
+      
+      if (isZeroTolerance(parameter, locationName)) {
+          if (numValue > 0) return "Red";
+      } else if (limits) {
+          if (limits.min !== undefined && numValue < limits.min) isRed = true;
+          else if (limits.min !== undefined && buffer > 0 && numValue <= (limits.min + Math.abs(limits.min * buffer))) isYellow = true;
+          if (limits.max !== undefined && numValue > limits.max) isRed = true;
+          else if (limits.max !== undefined && buffer > 0 && numValue >= (limits.max - Math.abs(limits.max * buffer))) isYellow = true;
+      }
+
+      if (isRed) return "Red";
+      if (isYellow) return "Yellow";
+      return "Green";
+    }
+
+    function getWorstZone(currentZone, newZone) {
+      const priority = { "Red": 4, "Yellow": 3, "Green": 2, "Grey": 1 };
+      const c = priority[currentZone] || 1;
+      const n = priority[newZone] || 1;
+      return n > c ? newZone : currentZone;
+    }
+
+    function getZoneColor(zone) {
+      if (zone === "Red") return "#d32f2f";
+      if (zone === "Yellow") return "#fbc02d";
+      if (zone === "Green") return "#388e3c";
+      return "#9e9e9e";
+    }
+
+    function updateMap() {
+      markersLayer.clearLayers();
+      const selectedType = document.getElementById('testingTypeFilter').value;
+      const selectedLoc = document.getElementById('locationFilter').value;
+      const selectedSource = document.getElementById('sourceFilter').value;
+      const selectedMonth = document.getElementById('monthFilter').value;
+      const selectedParam = document.getElementById('paramFilter').value;
+      const selectedZoneFilter = document.getElementById('zoneFilter').value;
+      const allowedParams = Array.from(document.getElementById('paramFilter').options).map(opt => opt.value).filter(val => val !== "All");
+      
+      const filteredLocations = dashboardData.locations.filter(l => {
+          const matchType = selectedType === "All" || (l.testingType || "Water Testing") === selectedType;
+          const matchLoc = selectedLoc === "All" || l.name === selectedLoc;
+          const matchSource = selectedSource === "All" || l.sourceType === selectedSource;
+          return matchType && matchLoc && matchSource; 
+      });
+      
+      let bounds = [];
+      const plottedCoords = {}; 
+
+      filteredLocations.forEach(loc => {
+        let finalZone = "Grey";
+        let popupContent = `<b>${loc.name}</b><span style="display:block; font-size:0.8rem; color:#64748b; margin-bottom:8px;">${loc.sourceType}</span>`;
+        
+        if (selectedMonth !== "All" && selectedParam !== "All") {
+          const record = loc.records[selectedMonth];
+          const val = record ? record[selectedParam] : undefined;
+          
+          finalZone = getZone(selectedParam, val, loc.name);
+          let displayVal = formatDisplayValue(val, selectedParam, loc.name); 
+          popupContent += `<span style="display:block; margin-top:5px; color:#475569;">${selectedParam} (${selectedMonth}): <span class="text-${finalZone.toLowerCase()}">${displayVal ?? "No Data"}</span></span>`;
+        } 
+        else if (selectedMonth !== "All" && selectedParam === "All") {
+          popupContent += `<span style="font-size:0.85rem; color:#64748b;">Values for ${selectedMonth}</span>`;
+          const record = loc.records[selectedMonth];
+          if (record && Object.keys(record).length > 0) {
+            let table = '<table class="data-table"><tr><th>Parameter</th><th>Value</th></tr>';
+            allowedParams.forEach(p => {
+              const val = record[p];
+              if (val !== undefined && val !== "" && val !== "-") {
+                const paramZone = getZone(p, val, loc.name);
+                finalZone = getWorstZone(finalZone, paramZone);
+                let displayVal = formatDisplayValue(val, p, loc.name); 
+                table += `<tr><td class="text-${paramZone.toLowerCase()}">${p}</td><td class="text-${paramZone.toLowerCase()}">${displayVal}</td></tr>`;
+              }
+            });
+            table += '</table>'; 
+            popupContent += table;
+          } else { 
+            popupContent += "<br/><span style='color:#94a3b8;'>No Data for this date.</span>";
+          }
+        } 
+        else if (selectedMonth === "All" && selectedParam !== "All") {
+          let sum = 0, count = 0, textValues = [];
+          let violationCount = 0; 
+          
+          Object.values(loc.records).forEach(rec => {
+            if(rec[selectedParam] !== undefined && String(rec[selectedParam]).trim() !== "-"){
+               let rawVal = String(rec[selectedParam]);
+               if (getZone(selectedParam, rawVal, loc.name) === "Red") violationCount++;
+               
+               let cleanStr = rawVal.trim().toLowerCase();
+               if (cleanStr === "bdl" || cleanStr === "nd") cleanStr = "0"; 
+               let val = parseFloat(cleanStr.replace(/[^\d.-]/g, ''));
+               if(!isNaN(val)) { sum += val; count++; } else { textValues.push(cleanStr); }
+            }
+          });
+          let totalSamples = count + textValues.length;
+          let isStrictParam = isParameterStrict(selectedParam, loc.name);
+          if (count > 0) {
+              const avg = Math.round(sum / count);
+              finalZone = getZone(selectedParam, avg, loc.name);
+              let displayVal = formatDisplayValue(avg, selectedParam, loc.name); 
+              let freqFlag = "";
+              if (isStrictParam && totalSamples > 0 && (violationCount / totalSamples) >= 0.33) {
+                  finalZone = "Red";
+                  freqFlag = " <br><span style='color:#d32f2f; font-size: 0.75rem; font-weight:bold;'>⚠️ Frequent Violations (>33%)</span>";
+              }
+              
+              let label = isZeroTolerance(selectedParam, loc.name) ? selectedParam : `Average ${selectedParam}`;
+              popupContent += `<span style="display:block; margin-top:5px; color:#475569;">${label}: <span class="text-${finalZone.toLowerCase()}">${displayVal}</span>${freqFlag}</span>`;
+          } else if (textValues.length > 0) {
+              let worstText = "Absent", paramZone = "Green";
+              for (let t of textValues) {
+                  let tempZone = getZone(selectedParam, t, loc.name);
+                  if (tempZone === "Red") { worstText = "Present (Historical)"; paramZone = "Red"; break; }
+              }
+              finalZone = paramZone;
+              let freqFlag = "";
+              if (isStrictParam && totalSamples > 0 && (violationCount / totalSamples) >= 0.33) {
+                  finalZone = "Red";
+                  worstText = "Present (Frequent)";
+                  freqFlag = " <br><span style='color:#d32f2f; font-size: 0.75rem; font-weight:bold;'>⚠️ Frequent Violations (>33%)</span>";
+              }
+              let label = isZeroTolerance(selectedParam, loc.name) ? selectedParam : `Historical ${selectedParam}`;
+              popupContent += `<span style="display:block; margin-top:5px; color:#475569;">${label}: <span class="text-${finalZone.toLowerCase()}">${worstText}</span>${freqFlag}</span>`;
+          } else { 
+            popupContent += `<span style="display:block; margin-top:5px; color:#94a3b8;">Average ${selectedParam}: No Data</span>`;
+          }
+        } 
+        else if (selectedMonth === "All" && selectedParam === "All") {
+          popupContent += `<span style="font-size:0.85rem; color:#64748b;">Averages & History (All Time)</span>`;
+          let table = '<table class="data-table"><tr><th>Parameter</th><th>Summary Value</th></tr>';
+          
+          allowedParams.forEach(p => {
+            let sum = 0, count = 0, textValues = [];
+            let violationCount = 0; 
+            
+            Object.values(loc.records).forEach(rec => {
+              if(rec[p] !== undefined && String(rec[p]).trim() !== "-"){
+                 let rawVal = String(rec[p]);
+                 if (getZone(p, rawVal, loc.name) === "Red") violationCount++;
+                 
+                 let cleanStr = rawVal.trim().toLowerCase();
+                 if (cleanStr === "bdl" || cleanStr === "nd") cleanStr = "0"; 
+                 let val = parseFloat(cleanStr.replace(/[^\d.-]/g, ''));
+                 if(!isNaN(val)) { sum += val; count++; } else { textValues.push(cleanStr); }
+              }
+            });
+            
+            let totalSamples = count + textValues.length;
+            let isStrictParam = isParameterStrict(p, loc.name);
+            
+            if (count > 0) {
+              const avg = Math.round(sum / count); 
+              let paramZone = getZone(p, avg, loc.name);
+              let displayVal = formatDisplayValue(avg, p, loc.name); 
+              
+              let suffix = isZeroTolerance(p, loc.name) ? "" : "(Avg)";
+              if (isStrictParam && totalSamples > 0 && (violationCount / totalSamples) >= 0.33) {
+                  paramZone = "Red";
+                  suffix += " ⚠️";
+              }
+              finalZone = getWorstZone(finalZone, paramZone);
+              table += `<tr><td class="text-${paramZone.toLowerCase()}">${p}</td><td class="text-${paramZone.toLowerCase()}">${displayVal} ${suffix.trim()}</td></tr>`;
+            } else if (textValues.length > 0) {
+              let worstText = "Absent", paramZone = "Green";
+              for (let t of textValues) {
+                  let tempZone = getZone(p, t, loc.name);
+                  if (tempZone === "Red") { worstText = "Present (Flagged)"; paramZone = "Red"; break; }
+              }
+              if (isStrictParam && totalSamples > 0 && (violationCount / totalSamples) >= 0.33) {
+                  paramZone = "Red";
+                  worstText = "Present ⚠️";
+              }
+              finalZone = getWorstZone(finalZone, paramZone);
+              table += `<tr><td class="text-${paramZone.toLowerCase()}">${p}</td><td class="text-${paramZone.toLowerCase()}">${worstText}</td></tr>`;
+            }
+          });
+          table += '</table>';
+          popupContent += table;
+        }
+
+        if (selectedZoneFilter === "All" || selectedZoneFilter === finalZone) {
+          let lat = parseFloat(loc.lat);
+          let lng = parseFloat(loc.lng);
+          if (!isNaN(lat) && !isNaN(lng)) {
+            let coordKey = lat.toFixed(4) + "_" + lng.toFixed(4);
+            if (plottedCoords[coordKey] === undefined) { plottedCoords[coordKey] = 0; } 
+            else {
+                plottedCoords[coordKey]++;
+                lat += (plottedCoords[coordKey] * 0.0003);
+                lng += (plottedCoords[coordKey] * 0.0003);
+            }
+
+            const marker = L.circleMarker([lat, lng], { radius: 9, fillColor: getZoneColor(finalZone), color: "#ffffff", weight: 2, opacity: 1, fillOpacity: 0.9 });
+            marker.bindPopup(popupContent);
+            markersLayer.addLayer(marker);
+            bounds.push([lat, lng]);
+          }
+        }
+      });
+      if (bounds.length === 1) map.setView(bounds[0], 16);
+      else if (bounds.length > 1) map.fitBounds(L.latLngBounds(bounds), { padding: [20, 20] });
+    }
+
+    const chatTriggerBtn = document.getElementById('chatTriggerBtn');
+    const chatCloseBtn = document.getElementById('chatCloseBtn');
+    const chatWindow = document.getElementById('chatWindow');
+    const chatInputField = document.getElementById('chatInputField');
+    const chatSendBtn = document.getElementById('chatSendBtn');
+    const chatMessagesBox = document.getElementById('chatMessagesBox');
+    const chatTypingIndicator = document.getElementById('chatTypingIndicator');
+    const qaToggleBtn = document.getElementById('qaToggleBtn');
+    const quickActionsMenu = document.getElementById('quickActionsMenu');
+    
+    qaToggleBtn.addEventListener('click', function() {
+        quickActionsMenu.classList.toggle('open');
+    });
+    
+    window.insertPrompt = function(text) {
+        chatInputField.value = text;
+        quickActionsMenu.classList.remove('open');
+        chatInputField.focus();
+    };
+    
+    chatTriggerBtn.addEventListener('click', function() {
+        chatWindow.classList.add('active');
+    });
+    
+    chatCloseBtn.addEventListener('click', function() {
+        chatWindow.classList.remove('active');
+        
+        // 1. Check what the current dashboard filter is set to
+        const selectedType = document.getElementById('testingTypeFilter').value;
+        let welcomeText = "Hello! I am your EcoMetrics Hub assistant. Ask me questions about environmental parameters, zones, or specific locations.";
+        
+        if (selectedType === "Food Testing") {
+            welcomeText = "Hello! Ask me about food safety limits and contamination standards.";
+        } else if (selectedType === "Soil Testing") {
+            welcomeText = "Hello! Ask me about soil nutrients, pH levels, and agricultural standards.";
+        } else if (selectedType === "Water Testing") {
+            welcomeText = "Hello! I am your Water Quality assistant. Ask me questions about water parameters and zones.";
+        }
+        
+        // 2. Clear chat history and restore the dynamic welcome message (keeping the ID intact)
+        chatMessagesBox.innerHTML = `<div class="chat-msg bot" id="chat-welcome">${welcomeText}</div>`;
+    });
+    
+    function appendChatMessage(text, sender) {
+        const msgDiv = document.createElement('div');
+        msgDiv.classList.add('chat-msg', sender);
+        if (sender === 'user') {
+            msgDiv.innerText = text;
+        } else {
+            if (text.includes('<img src=')) {
+                msgDiv.innerHTML = text;
+            } else {
+                msgDiv.innerHTML = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br/>');
+            }
+        }
+        
+        chatMessagesBox.appendChild(msgDiv);
+        chatMessagesBox.scrollTop = chatMessagesBox.scrollHeight;
+    }
+
+   // --- NEW: GLOBAL CHAT MEMORY ---
+    let activeChatMemory = "";
+    
+    function handleChatSend() {
+        const query = chatInputField.value.trim();
+        if (!query) return;
+
+        quickActionsMenu.classList.remove('open'); 
+        
+        appendChatMessage(query, 'user');
+        chatInputField.value = '';
+
+        chatTypingIndicator.style.display = 'block';
+        chatMessagesBox.appendChild(chatTypingIndicator);
+        chatMessagesBox.scrollTop = chatMessagesBox.scrollHeight;
+        
+      // Send to Vercel/External Backend via POST request securely
+        fetch(BACKEND_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          redirect: "follow",
+          body: JSON.stringify({
+            action: "handleChatbotQuery",
+            query: query,
+            chatMemory: activeChatMemory,
+            activeTestingType: document.getElementById('testingTypeFilter').value
+          })
+        })
+        .then(res => res.json())
+        .then(result => {
+          chatTypingIndicator.style.display = 'none';
+          
+          if (result.status === "success") {
+              const response = result.data;
+              appendChatMessage(response, 'bot');
+              
+              let cleanBotResponse = response.replace(/<img[^>]*>/g, "[Visual Chart Generated]");
+              activeChatMemory += "User asked: " + query + "\nYou answered: " + cleanBotResponse + "\n\n";
+              if (activeChatMemory.length > 1500) activeChatMemory = activeChatMemory.substring(activeChatMemory.length - 1500);
+          } else {
+              appendChatMessage("System Error: " + result.message, 'bot');
+          }
+        })
+        .catch(function(error) {
+            chatTypingIndicator.style.display = 'none';
+            appendChatMessage("System Error: Could not connect to dashboard server.", 'bot');
+        });
+// <-- We now pass the memory to the backend!
+    }
+    chatSendBtn.addEventListener('click', function() {
+        handleChatSend();
+    });
+    
+    chatInputField.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            handleChatSend();
+        }
+    });
+    
+    window.onload = function() { initMap(); loadData(); };
+  </script>
+</body>
+</html>
