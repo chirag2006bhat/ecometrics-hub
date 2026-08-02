@@ -16,6 +16,8 @@ EcoMetrics Hub is a real-time environmental compliance and monitoring dashboard.
 * **AI Integration:** Google Gemini API 
 * **Deployment:** Vercel
 
+📊 **View Live Database:** [[Click here to view the Google Sheet](https://docs.google.com/spreadsheets/d/1g9NHVgA7oxf6RIn1eBC9r9ji_sGX9kEIep7dk4U2_c8/edit?usp=sharing)]
+
 ## 👥 Contributors
 * [Chirag Bhat]
 * [Prajwal H K]
